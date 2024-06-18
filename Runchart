@@ -1,0 +1,118 @@
+# Load the necessary libraries
+library(readxl)
+library(qicharts2)
+library(dplyr)
+library(ggplot2)
+
+# Read the Excel file
+file_path <- "C:/Users/muham/OneDrive - hamad.qa/Desktop/Github/Run charts/MedRec.xlsx"
+data <- read_excel(file_path, sheet = "Sheet1")
+
+# Ensure the months are in the correct order
+data$Month <- factor(data$Month, levels = c("January", "February", "March", "April", "May", "June", 
+                                            "July", "August", "September", "October", "November", "December"))
+
+# Calculate the median of the Compliance values
+median_compliance <- median(data$Compliance, na.rm = TRUE)
+
+# Determine if each value is above or below the median
+data <- data %>%
+  mutate(above_median = Compliance > median_compliance)
+
+# Calculate the number of useful observations
+useful_observations <- sum(data$Compliance != median_compliance, na.rm = TRUE)
+
+# Use rle to find the lengths of consecutive runs
+runs <- rle(data$above_median)
+
+# Count the number of runs
+number_of_runs <- length(runs$lengths)
+
+# Print the number of runs
+print(paste("Number of runs: ", number_of_runs))
+
+# Identify shifts (6 or more consecutive points)
+shift_positions <- which(runs$lengths >= 6)
+shift_indices <- unlist(lapply(shift_positions, function(i) {
+  if (runs$values[i]) {  # Only include runs that are all above or all below the median
+    start_idx <- sum(runs$lengths[1:(i-1)]) + 1
+    end_idx <- sum(runs$lengths[1:i])
+    return(start_idx:end_idx)
+  }
+}))
+
+# Ensure shift_indices is a simple vector
+shift_indices <- as.vector(shift_indices)
+
+# Print the details of the shifts
+if (length(shift_indices) > 0) {
+  cat("Shifts identified at positions:\n")
+  for (index in shift_indices) {
+    cat(paste("Index:", index, "Month:", data$Month[index], "Compliance:", data$Compliance[index], "\n"))
+  }
+} else {
+  cat("No shifts identified.\n")
+}
+
+# Function to identify trends (5 or more consecutive increasing or decreasing points)
+identify_trends <- function(values, n = 5) {
+  trend_indices <- c()
+  for (i in seq_along(values)) {
+    if (i <= (length(values) - n + 1)) {
+      if (all(diff(values[i:(i + n - 1)]) > 0)) {
+        trend_indices <- c(trend_indices, i:(i + n - 1))
+      } else if (all(diff(values[i:(i + n - 1)]) < 0)) {
+        trend_indices <- c(trend_indices, i:(i + n - 1))
+      }
+    }
+  }
+  return(unique(trend_indices))
+}
+
+# Identify trend indices
+trend_indices <- identify_trends(data$Compliance)
+
+# Create the run chart using ggplot2
+p <- ggplot(data, aes(x = Month, y = Compliance)) +
+  geom_point(aes(color = above_median), size = 3, shape = 19) +  # Different colors for points
+  scale_color_manual(values = c("orange", "darkgreen")) +  # Custom colors for points
+  geom_hline(yintercept = median_compliance, linetype = "dashed", color = "red", size = 1) +  # Enhance median line
+  ggtitle('Run Chart of IP Medication Reconciliation Compliance') +
+  xlab('Month') +
+  ylab('Compliance') +
+  theme_minimal(base_size = 15) +  # Increase base font size for readability
+  theme(
+    plot.title = element_text(family = "Arial", size = 16, face = "bold", hjust = 0.5),  # Title font
+    axis.title = element_text(family = "Arial", size = 14, face = "bold"),  # Axis titles font
+    axis.text = element_text(family = "Arial", size = 12),  # Axis text font
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for better readability
+    legend.position = "none",  # Remove legend
+    panel.background = element_rect(fill = "white", color = NA),  # Change background color
+    plot.background = element_rect(fill = "white", color = "black", size = 1),  # Add border around the plot
+    panel.grid.major = element_blank(),  # Remove major gridlines
+    panel.grid.minor = element_blank()  # Remove minor gridlines
+  ) +
+  annotate("text", x = Inf, y = -Inf, label = paste("Number of runs: ", length(runs$lengths)), 
+           hjust = 1.1, vjust = -0.8, size = 4, color = "black", family = "Arial") +  # Adjust number of runs annotation
+  annotate("text", x = Inf, y = median_compliance, label = paste("Median:", round(median_compliance, 2)), 
+           hjust = 1.1, vjust = -0.5, size = 4, color = "red", family = "Arial") +  # Adjust median annotation
+  annotate("text", x = Inf, y = -Inf, label = paste("Useful observations: ", useful_observations), 
+           hjust = 1.1, vjust = -2.5, size = 4, color = "black", family = "Arial") +  # Add useful observations annotation
+  annotate("text", x = 9, y = 40, label = "Shift", hjust = 1.5, vjust = 0.8, size = 4, color = "black", family = "Arial") +
+  annotate("point", x = 9.2, y = 40, shape = 1, size = 3, color = "black", nudge_x = -0.5, vjust = 1.5) +
+  annotate("text", x = 12, y = 40, label = "Trend", hjust = 1.2, vjust = 0.8, size = 4, color = "black", family = "Arial") +
+  annotate("point", x = 12.2, y = 40, shape = 3, size = 3, color = "black", nudge_x = -0.5, vjust = 1.5)
+
+
+# Highlight shifts on the plot with a circle
+if (length(shift_indices) > 0) {
+  p <- p + geom_point(data = data[shift_indices, ], aes(x = Month, y = Compliance), color = "purple", size = 5, shape = 1)
+}
+
+# Highlight trends on the plot with plus signs
+if (length(trend_indices) > 0) {
+  p <- p + geom_point(data = data[trend_indices, ], aes(x = Month, y = Compliance), color = "blue", size = 5, shape = 3)
+}
+
+# Display the run chart
+print(p)
