@@ -1,0 +1,69 @@
+* Define inputs
+local sn 0.90  // # Substitute your value for sensitivity here
+local sp 0.85  // # Substitute your value for specificity here
+local p 0.20   // # Substitute your value for prevalence here
+local CI "95%"  // # Substitute your value for CI here
+
+* Create a dataset to store the results
+clear
+set obs 3
+gen precision = .
+gen sample_size = .
+replace precision = 0.01 in 1
+replace precision = 0.05 in 2
+replace precision = 0.10 in 3
+
+* Determine the z-score based on the confidence interval
+local z 1.96
+if "`CI'" == "90%" {
+    local z 1.645
+}
+if "`CI'" != "95%" & "`CI'" != "90%" {
+    display "Unsupported confidence interval"
+    exit
+}
+
+* Calculate the sample sizes for each precision level
+forvalues i = 1/3 {
+    local w = precision[`i']
+    
+    * Step 2: Calculate TP+FN (a+c)
+    local a_c = (`z'^2) * `sn' * (1 - `sn') / (`w'^2)
+    
+    * Step 3: Calculate N1 (total number of subjects needed to estimate sensitivity)
+    local n1 = `a_c' / `p'
+    local n1_int = floor(`n1')
+    if `n1' != `n1_int' {
+        local n1 = `n1_int' + 1
+    }
+    
+    * Step 4: Calculate FP+TN (b+d)
+    local b_d = (`z'^2) * `sp' * (1 - `sp') / (`w'^2)
+    
+    * Step 5: Calculate N2 (total number of subjects needed to estimate specificity)
+    local n2 = `b_d' / (1 - `p')
+    local n2_int = floor(`n2')
+    if `n2' != `n2_int' {
+        local n2 = `n2_int' + 1
+    }
+    
+    * Step 6: Get final sample size
+    local n = max(`n1', `n2')
+    
+    * Store the result in the dataset
+    replace sample_size = `n' in `i'
+}
+
+* Display the results
+list precision sample_size
+
+* Enhanced Plot
+twoway (line sample_size precision, sort lwidth(medium) lcolor(darkgreen)) ///
+       (scatter sample_size precision, msymbol(circle) msize(medium) mcolor(maroon)), ///
+    title("Sample Size for Different Precision Levels") ///
+    xtitle("Precision (Width of Confidence Interval)") ///
+    ytitle("Sample Size") ///
+    xlabel(0.01 "1%" 0.05 "5%" 0.10 "10%") ///
+    ylabel(, angle(horizontal)) ///
+    legend(off)
+
