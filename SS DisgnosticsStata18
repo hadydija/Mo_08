@@ -1,4 +1,4 @@
-**Stata 18 Code For Dr. Mohamed Kamal
+**Stata 18 Code
 * Define inputs
 local sn 0.90  // Sensitivity
 local sp 0.85  // Specificity
