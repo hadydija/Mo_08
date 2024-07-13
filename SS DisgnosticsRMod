@@ -1,0 +1,136 @@
+**Modified R Code
+# Title: Choosing Sample Size for Evaluating a Diagnostic Test
+
+# Step 1: Define the sample size calculation function
+calculate_sample_size <- function(sn, sp, p, w, CI) {
+  z <- if (CI == "95%") 1.96 else if (CI == "90%") 1.645 else stop("Unsupported confidence interval")
+  
+  # Step 2: Calculate TP+FN (a+c)
+  a_c <- (z^2) * sn * (1 - sn) / (w^2)
+  
+  # Step 3: Calculate N1
+  n1 <- a_c / p
+  n1 <- ceiling(n1)  # Round up to the next whole integer
+  
+  # Step 4: Calculate FP+TN (b+d)
+  b_d <- (z^2) * sp * (1 - sp) / (w^2)
+  
+  # Step 5: Calculate N2
+  n2 <- b_d / (1 - p)
+  n2 <- ceiling(n2)  # Round up to the next whole integer
+  
+  # Step 6: Get final sample size
+  n <- max(n1, n2)
+  
+  return(n)
+}
+
+# Step 2: Define the specific values for precision
+precision_values <- c(0.01, 0.05, 0.10)
+
+# Initialize an empty data frame to store results
+sample_size_results <- data.frame(Precision = precision_values)
+sample_size_results$SampleSize <- NA
+
+# Step 3: Constants
+sn <- 0.90  # Substitute your value for sensitivity here
+sp <- 0.85  # Substitute your value for specificity here
+p <- 0.20   # Substitute your value for prevalence here
+CI <- "95%" # Substitute your value for CI here
+
+# Calculate sample sizes for each precision
+for (i in 1:nrow(sample_size_results)) {
+  sample_size_results$SampleSize[i] <- calculate_sample_size(
+    sn = sn, 
+    sp = sp, 
+    p = p, 
+    w = sample_size_results$Precision[i], 
+    CI = CI
+  )
+}
+
+# Step 4: Print the results in the console
+cat("Sample Sizes for Different Precision Levels:\n")
+for (i in 1:nrow(sample_size_results)) {
+  cat("Precision:", sample_size_results$Precision[i] * 100, "%", 
+      "Sample Size:", sample_size_results$SampleSize[i], "\n")
+}
+
+# Load required library
+library(ggplot2)
+
+# Enhanced Plot
+ggplot(sample_size_results, aes(x = Precision, y = SampleSize)) +
+  geom_line(color = "darkgreen", linewidth = 1) +  # Use linewidth instead of size
+  geom_point(color = "maroon", size = 3) +  # Enhanced points
+  scale_x_continuous(breaks = precision_values, labels = scales::percent_format(accuracy = 1)) +  # Precision as percentages
+  scale_y_continuous(labels = scales::comma) +  # Y-axis with comma separator
+  labs(title = "Sample Size for Different Precision Levels",
+       x = "Precision (Width of Confidence Interval)",
+       y = "Sample Size") +
+  theme_minimal(base_size = 15) +  # Base size for better readability
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),  # Center and bold title
+    axis.title.x = element_text(face = "bold"),  # Bold x-axis title
+    axis.title.y = element_text(face = "bold"),  # Bold y-axis title
+    panel.grid.major = element_line(color = "grey80"),  # Grey major grid lines
+    panel.grid.minor = element_blank(),  # No minor grid lines
+    legend.position = "none"  # No legend needed
+  )
+
+
+
+
+**Stata 18 Code
+* Define inputs
+local sn 0.90  // Sensitivity
+local sp 0.85  // Specificity
+local p 0.20   // Prevalence
+local w 0.10   // Width of the confidence interval
+local Disease "Disease Name"
+local CI "95%"  // Confidence interval
+
+* Determine the z-score based on the confidence interval
+local z 1.96
+if "`CI'" == "90%" {
+    local z 1.645
+}
+if "`CI'" != "95%" & "`CI'" != "90%" {
+    display "Unsupported confidence interval"
+    exit
+}
+
+* Step 2: Calculate TP+FN (a+c)
+local a_c = (`z'^2) * `sn' * (1 - `sn') / (`w'^2)
+
+* Step 3: Calculate N1 (total number of subjects needed to estimate sensitivity)
+local n1 = `a_c' / `p'
+local n1_int = floor(`n1')
+if `n1' != `n1_int' {
+    local n1 = `n1_int' + 1
+}
+
+* Step 4: Calculate FP+TN (b+d)
+local b_d = (`z'^2) * `sp' * (1 - `sp') / (`w'^2)
+
+* Step 5: Calculate N2 (total number of subjects needed to estimate specificity)
+local n2 = `b_d' / (1 - `p')
+local n2_int = floor(`n2')
+if `n2' != `n2_int' {
+    local n2 = `n2_int' + 1
+}
+
+* Step 6: Get final sample size
+local n = max(`n1', `n2')
+
+* Display the sample size data
+display as text "Disease: " "`Disease'"
+display as text "Precision: " `w'
+display as text "Sensitivity: " `sn'
+display as text "Specificity: " `sp'
+display as text "Prevalence: " `p'
+display as text "N1 (for sensitivity): " `n1'
+display as text "N2 (for specificity): " `n2'
+display as text "Total Subjects: " `n'
+display as text "Confidence Interval: " "`CI'"
+
