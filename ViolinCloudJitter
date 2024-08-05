@@ -1,0 +1,37 @@
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+library(ggplot2)
+
+if (!requireNamespace("devtools", quietly = TRUE)) {
+  install.packages("devtools")
+}
+devtools::install_github("erocoar/gghalves")
+library(gghalves)
+
+# Example data
+set.seed(123)
+data <- data.frame(
+  group = rep(c("A", "B"), each = 100),
+  value = c(rnorm(100, mean = 5), rnorm(100, mean = 6))
+)
+
+ggplot(data, aes(x = group, y = value, fill = group)) +
+  geom_half_violin(trim = FALSE) +
+  geom_boxplot(width = 0.1, position = position_nudge(x = 0.2)) +
+  geom_point(position = position_jitter(width = .15), alpha = .6) +
+  theme_minimal() +
+  labs(title = "Half-Violin Plot with Box Plot and Jitter",
+       x = "Group",
+       y = "Value")
+
+
+ggplot(data, aes(x = group, y = value, fill = group)) +
+  geom_half_violin(trim = FALSE) +
+  geom_boxplot(width = 0.1, position = position_nudge(x = 0.2)) +
+  geom_point(position = position_jitter(width = .15), alpha = .6) +
+  scale_fill_brewer(palette = "Set2") +  # Change color palette
+  theme_minimal() +
+  labs(title = "Half-Violin Plot with Box Plot and Jitter",
+       x = "Group",
+       y = "Value")
